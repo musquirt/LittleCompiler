@@ -24,6 +24,7 @@ struct VarStruct_s
 	std::string value;
 	// for temp vars, r#; for globals, none; for locals, $-#
 	std::string altName;
+	bool registerOnly;
 };
 typedef std::map< int, std::vector< VarStruct_s> > SymbolTable_t;
 
@@ -43,6 +44,7 @@ struct funcStruct_s {
 	std::string retLoc;
 	std::string assVar; // the variable that eventually gets assigned to
 	std::vector< std::string> retVals; // return conditions
+	int numTemps;
 };
 
 class Driver
@@ -125,7 +127,14 @@ private:
 							std::vector< std::string> &liveSet);
 	void printLiveSet(std::list< IRNode> nodes,
 					std::vector< std::vector< std::string> > live);
-	void registerAllocation(std::vector< std::vector< std::string> > live);
+	void registerAllocation(std::vector< std::vector< std::string> > &live, std::list< IRNode> &nodes);
+	std::string getNextAvailableRegister(std::map< std::string, std::string>&,
+															 std::string);
+	std::string getRegisterNumber(std::map< std::string, std::string> &,
+															 std::string);
+	void adjustNodeForRegisters(IRNode &, 
+						std::map< std::string, std::string>&);
+	bool isGlobalVariable(std::string s);
 };
 
 }
