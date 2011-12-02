@@ -526,10 +526,10 @@ void Driver::pushParams(std::vector< std::string> v)
 					it != symbolTable[scopeVec.size()].end(); it++)
 		{
 			if (v[i] == it->identifier) {
-				// push altName
+				// push identifier
 				IRNode newNode;
 				newNode.opCode = "PUSH";
-				newNode.Result = it->altName;
+				newNode.Result = it->identifier;
 				nodeList.push_back(newNode);
 				subNodeList.push_back(newNode);
 			}
