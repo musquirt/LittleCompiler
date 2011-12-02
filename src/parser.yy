@@ -146,7 +146,8 @@ func_body : decl stmt_list { if (last_stmt == false) { // for funcs w/o return
 							 }
 							 driver.functionMap[driver.scope] = 
 							 					driver.subNodeList;
-							 driver.subNodeList.clear(); };
+							 driver.subNodeList.clear();
+							 dontPush = false; };
 
     /* Statement List */
 stmt_list : stmt stmt_list {}

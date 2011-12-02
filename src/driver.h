@@ -44,7 +44,6 @@ struct funcStruct_s {
 	std::string retLoc;
 	std::string assVar; // the variable that eventually gets assigned to
 	std::vector< std::string> retVals; // return conditions
-	int numTemps;
 };
 
 class Driver
@@ -99,6 +98,7 @@ public:
 	// Liveness Anaylsis stuff
 	void performLivenessAnalysis();
 	std::list< IRNode> subNodeList;
+	std::list< IRNode> liveNodeList;
 private:
 	std::vector< std::string> scopeVec;
 	littleTypes adjustIROpCode(IRNode &node);
@@ -109,18 +109,20 @@ private:
 	void tinyPushRegisters(std::string scope = "main");
 	void tinyPopRegisters(std::string scope = "main");
 	int  getNumberRegistersUsed(std::string scope);
-	void tinyGenerateNormalCode();
+	void tinyGenerateNormalCode(std::list< IRNode> );
+	void tinyGenerateLiveCode();
 	std::stringstream tinyStream;
 	void interpretTree(std::vector< std::string> &theStack, std::string &lastTouched);
 	littleTypes getType(IRNode &node);
 	int getNumLocals(std::string scope);
+	int getNumLocalsAndTemps(std::string scope);
 	void renameVars(std::string &op1, std::string &op2, std::string &op3, std::string scp, funcStruct_s f);
 	void findFuncData(std::string s, funcStruct_s &f);
 	
 	// for liveness
-	void functionalLiveness(std::list< IRNode> nodes);
+	void functionalLiveness(std::list< IRNode> &nodes);
 	bool liveness;
-	std::vector< std::string> findGenSet(IRNode n);
+	std::vector< std::string> findGenSet(IRNode n, std::string fname, int &r);
 	std::vector< std::string> findKillSet(IRNode n);
 	void updateUseSet(std::vector< std::string> genSet,
 							std::vector< std::string> killset,
@@ -135,6 +137,8 @@ private:
 	void adjustNodeForRegisters(IRNode &, 
 						std::map< std::string, std::string>&);
 	bool isGlobalVariable(std::string s);
+	void modifyTempVarAltNames(funcStruct_s f);
+	bool isFunctionParameter(std::string s, std::string v);
 };
 
 }

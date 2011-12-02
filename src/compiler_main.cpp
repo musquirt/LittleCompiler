@@ -5,7 +5,7 @@
 
 #include "driver.h"
 
-//#define PRINT_TINY
+#define PRINT_TINY
 //#define PRINT_TABLE
 //#define PRINT_NODES
 
@@ -33,7 +33,9 @@ int main(int argc, char *argv[])
     }
     if (result == true)
     {
+    	driver.performLivenessAnalysis();
     	driver.tinyGeneration();
+    	
     	/* Code for printing junk */
     	#ifdef PRINT_TABLE
     		driver.printSymbolTable();
@@ -42,11 +44,11 @@ int main(int argc, char *argv[])
     	#ifdef PRINT_NODES
     		driver.printNodeList(true);
     	#endif
+    	
     	#ifdef PRINT_TINY
     		driver.printTinyCode();
     	#endif
     	
-    	driver.performLivenessAnalysis();
     }
     else
     {

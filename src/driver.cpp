@@ -31,6 +31,7 @@ Driver::Driver()
 	
 	functionMap.clear();
 	subNodeList.clear();
+	//liveNodeList.clear();
 }
 
 Driver::~Driver()
@@ -414,7 +415,11 @@ void Driver::tinyGeneration()
 	//tinyPopRegisters(); // apparently not
 	tinyStream << "sys halt" << std::endl;
 	
-	tinyGenerateNormalCode();
+	if (!liveness) {
+		tinyGenerateNormalCode(nodeList);
+	} else {
+		tinyGenerateNormalCode(liveNodeList);
+	}
 	
 	tinyStream << "end" << std::endl;
 	return;
@@ -444,13 +449,6 @@ void Driver::tinyVariableDeclaration() // for globals only
 
 void Driver::tinyPushRegisters(std::string scope)
 {
-	// push ALL THE REGISTERS...
-	// not currently worried about too many
-	/*int regs = getNumberRegistersUsed(scope);
-	if (regs > MAX_NUM_REGISTERS)
-	{
-		regs = MAX_NUM_REGISTERS;
-	}*/
 	for(int i=0; i<MAX_NUM_REGISTERS; i++)
 	{
 		tinyStream << "push r" << i << std::endl;
@@ -460,11 +458,6 @@ void Driver::tinyPushRegisters(std::string scope)
 
 void Driver::tinyPopRegisters(std::string scope)
 {
-	/*int regs = getNumberRegistersUsed(scope);
-	if (regs > MAX_NUM_REGISTERS)
-	{
-		regs = MAX_NUM_REGISTERS;
-	}*/
 	for(int i=MAX_NUM_REGISTERS-1; i>=0; i--)
 	{
 		tinyStream << "pop r" << i << std::endl;
@@ -538,6 +531,7 @@ void Driver::pushParams(std::vector< std::string> v)
 				newNode.opCode = "PUSH";
 				newNode.Result = it->altName;
 				nodeList.push_back(newNode);
+				subNodeList.push_back(newNode);
 			}
 		}
 	}
@@ -549,19 +543,24 @@ void Driver::popParams(int s) {
 		IRNode newNode;
 		newNode.opCode = "POP";
 		nodeList.push_back(newNode);
+		subNodeList.push_back(newNode);
 	}
 }
 
-void Driver::tinyGenerateNormalCode()
+void Driver::tinyGenerateNormalCode(std::list< IRNode> theNodes)
 {
 	std::list< IRNode>::iterator nodeIt;
 	bool startFunction = true;
 	std::string cs = GLOBAL_SCOPE;
 	funcStruct_s theFunc;
 	int numRets = 0;
-	
-	for (nodeIt=nodeList.begin(); nodeIt!=nodeList.end(); nodeIt++)
+
+	for (nodeIt=theNodes.begin(); nodeIt!=theNodes.end(); nodeIt++)
 	{
+		/*tinyStream << nodeIt->opCode << " " 
+					 << nodeIt->op1 << " " 
+					 << nodeIt->op2 << " " 
+					 << nodeIt->Result << std::endl;*/ 
 		/* Considering reorganization */
 		std::string op1 = nodeIt->op1;
 		std::string op2 = nodeIt->op2;
@@ -582,10 +581,11 @@ void Driver::tinyGenerateNormalCode()
 				tempFound = true;
 			}
 		}
+		
 		if (nodeIt->opCode == "LABEL")
 		{
 			tinyStream << "label " << result << std::endl;
-			
+
 			if (startFunction == true) {
 				startFunction = false;
 				cs = result;
@@ -594,25 +594,12 @@ void Driver::tinyGenerateNormalCode()
 		}
 		else if (nodeIt->opCode.find("STORE") != std::string::npos)
 		{
-			// check that only one is memory id or stack variable
-			// ... by confirming that one is either a literal or
-			// register
-			if ( nodeIt->op1.find(TEMP_VAR_PRE) != std::string::npos ||
-				 nodeIt->Result.find(TEMP_VAR_PRE) != std::string::npos ||
-				 isdigit(op1[0]) == true || 
-				 isdigit(result[0]) == true)
-			{
-				tinyStream << "move " << op1 << " " << result << std::endl;
-			}
-			else
-			{
-				tinyStream << "push " << theTemp << std::endl;
-				tinyStream << "move " << op1 << " " << theTemp
-						   << std::endl;
-				tinyStream << "move " << theTemp << " "
-						   << result << std::endl;
-				tinyStream << "pop " << theTemp << std::endl;
-			}
+			tinyStream << "push " << theTemp << std::endl;
+			tinyStream << "move " << op1 << " " << theTemp
+					   << std::endl;
+			tinyStream << "move " << theTemp << " "
+					   << result << std::endl;
+			tinyStream << "pop " << theTemp << std::endl;
 		}
 		else if (nodeIt->opCode.find("ADD") != std::string::npos)
 		{
@@ -787,19 +774,12 @@ void Driver::tinyGenerateNormalCode()
 					renameVars(dstr1, dstr2, theName, cs, theFunc);
 					// only one can be stack var/mem id and we know
 					// that retLoc is a stack var
-					if (id.find(TEMP_VAR_PRE) == std::string::npos)
-					{
-						tinyStream << "push " << theTemp << std::endl;
-						tinyStream << "move " << theName << " "
-								   << theTemp  << std::endl;
-						tinyStream << "move " << theTemp << " "
-								   << theFunc.retLoc << std::endl;
-						tinyStream << "pop " << theTemp << std::endl;
-					}
-					else {
-						tinyStream << "move " << theName << " "
-								   << theFunc.retLoc << std::endl;
-					}
+					tinyStream << "push " << theTemp << std::endl;
+					tinyStream << "move " << theName << " "
+							   << theTemp  << std::endl;
+					tinyStream << "move " << theTemp << " "
+							   << theFunc.retLoc << std::endl;
+					tinyStream << "pop " << theTemp << std::endl;
 				}
 			}
 			tinyStream << "unlnk" << std::endl;
@@ -826,9 +806,26 @@ void Driver::tinyGenerateNormalCode()
 		else if (nodeIt->opCode == "LINK") {
 			int numLocals = getNumLocals(cs);
 			tinyStream << "link " << numLocals << std::endl;
-			
+
 		}
 	}
+}
+
+int Driver::getNumLocalsAndTemps(std::string scope) {
+	int scopeNum = -1;
+	for (int i=0; i<scopeVec.size(); i++)
+	{
+		if (scopeVec[i] == scope)
+		{
+			scopeNum = i + 1;
+			i = scopeVec.size();
+		}
+	}
+	int num = 0;
+	if (symbolTable.count(scopeNum) == 1) {
+		num = symbolTable[scopeNum].size();
+	}
+	return num;
 }
 
 int Driver::getNumLocals(std::string scope) {
@@ -853,30 +850,6 @@ int Driver::getNumLocals(std::string scope) {
 		}
 	}
 	return num;
-}
-
-int Driver::getNumberRegistersUsed(std::string scope)
-{
-	int numReg = 0;
-	int scopeNum = -1;
-	for (int i=0; i<scopeVec.size(); i++)
-	{
-		if (scopeVec[i] == scope)
-		{
-			scopeNum = i + 1;
-			i = scopeVec.size();
-		}
-	}
-	for (int i=0; i<symbolTable[scopeNum].size(); i++)
-	{
-		if (symbolTable[scopeNum][i].identifier.find(TEMP_VAR_PRE)
-														!= std::string::npos)
-		{
-			numReg++;
-		}
-	}
-	
-	return numReg;
 }
 
 void Driver::createFunction(std::string name) {
@@ -923,55 +896,47 @@ void Driver::popRetVal() {
 	newNode.opCode = "POP";
 	newNode.Result = fs[fs.size()-1].assVar;
 	nodeList.push_back(newNode);
+	subNodeList.push_back(newNode);
 	return;
 }
 
 void Driver::performLivenessAnalysis() {
-	if (liveness == false) return;
+	if (liveness == false) {
+		return;
+	}
 	
 	std::map< std::string, std::list< IRNode> >::iterator it;
 	for (it = functionMap.begin(); it != functionMap.end(); it++) {
 		functionalLiveness(it->second);
+		liveNodeList.insert(liveNodeList.end(), it->second.begin(), it->second.end());
 	}
 	
 	return;
 }
 
-void Driver::functionalLiveness(std::list< IRNode> nodes) {
+void Driver::functionalLiveness(std::list< IRNode> &nodes) {
 	// get func data so we can get parameters
 	funcStruct_s f;
 	findFuncData(nodes.front().Result, f);
-	std::stringstream out;
-	out << "Liveness analysis on " << nodes.front().Result
-			  << "(";
-	for (int i=0; i<f.params.size(); i++) {
-		out << f.params[i].identifier;
-		if (i != f.params.size()-1) {
-			out << ", ";
-		}
-	}
-	out << ")";
-	std::cout << out.str() << std::endl;
-	out.str("");
+	modifyTempVarAltNames(f);
 	
 	std::vector< std::vector< std::string> > liveVec;
 	std::vector< std::string> live;
 	
 	nodes.reverse();
 	std::list< IRNode>::iterator it;
+	int returnNumber = f.retVals.size()-1;
 	for (it=nodes.begin(); it!=nodes.end(); it++) {
 		std::vector< std::string> gen;
 		std::vector< std::string> kill;
 		
-		gen = findGenSet(*it);
+		gen = findGenSet(*it, nodes.back().Result, returnNumber);
 		// add parameters at beginning
-		if (it == nodes.begin()) {
-			funcStruct_s f;
-			findFuncData(nodes.back().Result, f);
+		/*if (it == nodes.begin()) {
 			for (int i=0; i<f.params.size(); i++) {
 				gen.insert(gen.begin(), f.params[i].identifier);
 			}
-		}
+		}*/
 		kill = findKillSet(*it);
 		
 		updateUseSet(gen, kill, live);
@@ -985,8 +950,31 @@ void Driver::functionalLiveness(std::list< IRNode> nodes) {
 	nodes.reverse();
 	registerAllocation(liveVec, nodes);
 	
-	printLiveSet(nodes, liveVec);
+	//printLiveSet(nodes, liveVec);
 	
+	return;
+}
+
+void Driver::modifyTempVarAltNames(funcStruct_s f) {
+	int num_scope = 0;
+	for (int i=0; i<scopeVec.size(); i++) {
+		if (scopeVec[i] == f.name) {
+			num_scope = i+1;
+			break;
+		}
+	}
+	if (symbolTable.count(num_scope) == 1) {
+		int tempNum = getNumLocals(f.name)+1;
+		for (int i=0; i<symbolTable[num_scope].size(); i++) {
+			if (symbolTable[num_scope][i].identifier.find(TEMP_VAR_PRE) !=
+					 std::string::npos) {
+				std::stringstream tstr;
+				tstr << "$-" << tempNum;
+				symbolTable[num_scope][i].altName = tstr.str();
+				tempNum++;
+			}
+		}
+	}
 	return;
 }
 
@@ -1001,7 +989,23 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		std::stringstream out;
 		std::stringstream out1;
 		
-		for (sIt=it->begin(); sIt!=it->end(); sIt++) {
+		std::vector< std::string> liveVars;
+		if (it->size() > MAX_NUM_REGISTERS) {
+			// redefine liveVars as the last 4 variables
+			std::vector< std::string>::iterator liveIt;
+			int i = 0;
+			for (liveIt=it->begin(); liveIt!=it->end(); liveIt++) {
+				if (i >= MAX_NUM_REGISTERS) {
+					liveVars.erase(liveVars.begin());
+				}
+				liveVars.push_back(*liveIt);
+				i++;
+			}
+		} else {
+			liveVars = *it;
+		}
+
+		for (sIt=liveVars.begin(); sIt!=liveVars.end(); sIt++) {
 			out1 << *sIt << ",";
 			bool alreadyReg = false;
 			std::map< std::string, std::string>::iterator rIt;
@@ -1017,32 +1021,31 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 					std::map< std::string, std::string>::iterator rIt;
 					for (rIt=regMap.begin(); rIt!=regMap.end(); rIt++) {
 						std::string reg = rIt->second;
-						if (reg != (*nIt).op1 && reg != (*nIt).op2 &&
-												 reg != (*nIt).Result) {
+						if (reg != nIt->op1 && reg != nIt->op2 &&
+												 reg != nIt->Result) {
 							out << "Spilling " << reg  << std::endl;
 							IRNode newNode;
 							newNode.opCode = "STOREI";
 							newNode.op1    = rIt->first;
 							newNode.Result = rIt->second;
 							nodes.insert(nIt, newNode);
-							std::cout << "STOREI " << rIt->first << " " 
-												<< rIt->second <<std::endl;
+							//std::cout << "STOREI " << rIt->first << " " 
+							//					<< rIt->second <<std::endl;
 							regMap.erase(rIt->first);
 							break;
 						}
 					}
 				}
-				out << "Regging " << *(sIt) << std::endl;
-				
+
 				getNextAvailableRegister(regMap, *sIt);
 			}
-			
-			
+
+
 		}
 		IRNode newNode = *nIt;
 		adjustNodeForRegisters(newNode, regMap);
 		std::list< IRNode>::iterator tIt;
-		tIt = nodes.insert(nIt, newNode); 
+		tIt = nodes.insert(nIt, newNode);
 		nodes.erase(nIt);
 		nIt = tIt;
 		std::stringstream out3;
@@ -1050,10 +1053,9 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		if (!(*nIt).op1.empty()) out3 << " " << (*nIt).op1;
 		if (!(*nIt).op2.empty()) out3 << " " << (*nIt).op2;
 		if (!(*nIt).Result.empty()) out3 << " " << (*nIt).Result;
-		std::cout << out3.str() << std::endl;
-		//std::cout << "(" << out1.str() << ")" << std::endl << out.str() << out3.str();
+		//std::cout << "(" << out1.str() << ")" << std::endl << out3.str()<< std::endl;
 	}
-	
+
 	return;
 }
 
@@ -1115,9 +1117,10 @@ std::string Driver::getNextAvailableRegister(std::map< std::string,
 
 void Driver::printLiveSet(std::list< IRNode> nodes,
 					std::vector< std::vector< std::string> > live) {
-	std::list< IRNode>::iterator it;
+	std::list< IRNode>::reverse_iterator it;
 	std::vector< std::vector< std::string> >::reverse_iterator lIt;
-	for (it=nodes.begin(); it!=nodes.end(); it++) {
+	for (it=nodes.rbegin(), lIt=live.rbegin(); 
+				it!=nodes.rend(), lIt!=live.rend(); it++, lIt++) {
 		std::stringstream out;
 		out << it->opCode << " ";
 		if (it->op1 != "") out << it->op1 << " ";
@@ -1125,6 +1128,17 @@ void Driver::printLiveSet(std::list< IRNode> nodes,
 		if (it->Result != "") out << it->Result;
 		std::cout << out.str() << std::endl;
 		out.str("");
+
+		out << "    (";
+		std::vector< std::string> v = *lIt;
+		for (int i=0; i<v.size(); i++) {
+			out << v[i];
+			if (i != v.size()-1) {
+				out << ",";
+			}
+		}
+		out << ")";
+		std::cout << out.str() << std::endl;
 	}
 }
 
@@ -1175,7 +1189,18 @@ bool Driver::isGlobalVariable(std::string s) {
 	return false;
 }
 
-std::vector< std::string> Driver::findGenSet(IRNode n) {
+bool Driver::isFunctionParameter(std::string s, std::string v) {
+	funcStruct_s f;
+	findFuncData(s, f);
+	for (int i=0; i<f.params.size(); i++) {
+		if (v == f.params[i].identifier) {
+			return true;
+		}
+	}
+	return false;
+}
+
+std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 	
 	std::vector< std::string> v;
 	if (n.opCode.find("ADD") != std::string::npos ||
@@ -1184,23 +1209,42 @@ std::vector< std::string> Driver::findGenSet(IRNode n) {
 			n.opCode.find("DIV") != std::string::npos) {
 		// no literals
 		if (isdigit(n.op1[0]) == false &&
-				n.op1[0] != '.' && !isGlobalVariable(n.op1)) {
+				n.op1[0] != '.' && !isGlobalVariable(n.op1)
+				&& !isFunctionParameter(f, n.op1)) {
 			v.push_back(n.op1);
 		}
 		if (isdigit(n.op2[0]) == false &&
-				n.op2[0] != '.' && !isGlobalVariable(n.op2)) {
+				n.op2[0] != '.' && !isGlobalVariable(n.op2)
+				&& !isFunctionParameter(f, n.op2)) {
 			v.push_back(n.op2);
 		}
 	} else if (n.opCode.find("STORE") != std::string::npos) {
 		if (isdigit(n.op1[0]) == false &&
-				n.op1[0] != '.'  && !isGlobalVariable(n.op1)) {
+				n.op1[0] != '.'  && !isGlobalVariable(n.op1)
+				&& !isFunctionParameter(f, n.op1)) {
 			v.push_back(n.op1);
 		}
 	} else if (n.opCode.find("WRITE") != std::string::npos) {
 		if (isdigit(n.Result[0]) == false &&
-				n.Result[0] != '.' && !isGlobalVariable(n.Result)) {
+				n.Result[0] != '.' && !isGlobalVariable(n.Result)
+				&& !isFunctionParameter(f, n.Result)) {
 			v.push_back(n.Result);
 		}
+	} else if (n.opCode.find("PUSH") != std::string::npos) {
+		if (n.Result != "" && !isFunctionParameter(f, n.Result) &&
+				!isGlobalVariable(n.Result)) {
+			v.push_back(n.Result);
+		}
+	} else if (n.opCode.find("RETURN") != std::string::npos) {
+		funcStruct_s g;
+		findFuncData(f, g);
+		std::string t = g.retVals[r];
+		if (t != "" && isdigit(t[0]) == false &&
+				t[0] != '.' && !isGlobalVariable(t)
+				&& !isFunctionParameter(f, t)) {
+			v.push_back(t);
+		}
+		r--;
 	}
 	
 	return v;
@@ -1216,6 +1260,8 @@ std::vector< std::string> Driver::findKillSet(IRNode n) {
 					n.opCode.find("SUB") != std::string::npos ||
 					n.opCode.find("MUL") != std::string::npos ||
 					n.opCode.find("DIV") != std::string::npos) {
+		v.push_back(n.Result);
+	} else if (n.opCode.find("POP") != std::string::npos) {
 		v.push_back(n.Result);
 	}
 	
