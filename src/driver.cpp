@@ -205,6 +205,7 @@ void Driver::pushBackCurNode()
 	curNode.op1 = "";
 	curNode.op2 = "";
 	curNode.Result = "";
+	curNode.ifFlags = 0;
 	return;
 }
 
@@ -410,7 +411,7 @@ void Driver::tinyGeneration()
 	tinyVariableDeclaration();
 	// initial push
 	tinyStream << "push" << std::endl;
-	tinyPushRegisters();
+	tinyPushRegisters(GLOBAL_SCOPE);
 	tinyStream << "jsr main" << std::endl;
 	//tinyPopRegisters(); // apparently not
 	tinyStream << "sys halt" << std::endl;
@@ -447,8 +448,28 @@ void Driver::tinyVariableDeclaration() // for globals only
 	return;
 }
 
-void Driver::tinyPushRegisters(std::string scope)
+void Driver::tinyPushRegisters(std::string scp)
 {
+	/*// push locals
+	if (scp != GLOBAL_SCOPE)
+	{
+		// first check the local variables
+		int scpnm = -1;
+		for (int i=0; i<scopeVec.size(); i++) {
+			if (scopeVec[i] == scp) {
+				scpnm = i+1;
+				break;
+			}
+		}
+		if (scpnm != -1) {
+			std::vector< VarStruct_s>::iterator vIt;
+			for (vIt = symbolTable[scpnm].begin(); 
+						vIt != symbolTable[scpnm].end(); vIt++)
+			{
+				tinyStream << "push " << vIt->altName << std::endl;
+			}
+		}
+	}*/
 	for(int i=0; i<MAX_NUM_REGISTERS; i++)
 	{
 		tinyStream << "push r" << i << std::endl;
@@ -458,6 +479,26 @@ void Driver::tinyPushRegisters(std::string scope)
 
 void Driver::tinyPopRegisters(std::string scope)
 {
+	/*// pop locals
+	if (scope != GLOBAL_SCOPE)
+	{
+		// first check the local variables
+		int scpnm = -1;
+		for (int i=0; i<scopeVec.size(); i++) {
+			if (scopeVec[i] == scope) {
+				scpnm = i+1;
+				break;
+			}
+		}
+		if (scpnm != -1) {
+			std::vector< VarStruct_s>::reverse_iterator vIt;
+			for (vIt = symbolTable[scpnm].rbegin(); 
+						vIt != symbolTable[scpnm].rend(); vIt++)
+			{
+				tinyStream << "pop " << vIt->altName << std::endl;
+			}
+		}
+	}*/
 	for(int i=MAX_NUM_REGISTERS-1; i>=0; i--)
 	{
 		tinyStream << "pop r" << i << std::endl;
@@ -557,11 +598,8 @@ void Driver::tinyGenerateNormalCode(std::list< IRNode> theNodes)
 
 	for (nodeIt=theNodes.begin(); nodeIt!=theNodes.end(); nodeIt++)
 	{
-		/*tinyStream << nodeIt->opCode << " " 
-					 << nodeIt->op1 << " " 
-					 << nodeIt->op2 << " " 
-					 << nodeIt->Result << std::endl;*/ 
-		/* Considering reorganization */
+		//tinyStream << nodeIt->opCode << " " << nodeIt->op1 << " " << nodeIt->op2 << " " << nodeIt->Result << std::endl;
+		
 		std::string op1 = nodeIt->op1;
 		std::string op2 = nodeIt->op2;
 		std::string result = nodeIt->Result;
@@ -884,6 +922,17 @@ void Driver::findFuncData(std::string s, funcStruct_s &f) {
 			return;
 		}
 	}
+	return;
+}
+
+void Driver::overwriteFuncData(funcStruct_s &f) {
+	for (int i=0; i<fs.size(); i++) {
+		if (fs[i].name == f.name) {
+			fs[i] = f;
+			return;
+		}
+	}
+	return;
 }
 
 void Driver::addRetVal(std::string id) {
@@ -926,20 +975,45 @@ void Driver::functionalLiveness(std::list< IRNode> &nodes) {
 	nodes.reverse();
 	std::list< IRNode>::iterator it;
 	int returnNumber = f.retVals.size()-1;
+	std::stack< std::vector< std::string> > liveVecStack;
+	std::stack< bool > elseStack;
+	
 	for (it=nodes.begin(); it!=nodes.end(); it++) {
 		std::vector< std::string> gen;
 		std::vector< std::string> kill;
 		
 		gen = findGenSet(*it, nodes.back().Result, returnNumber);
-		// add parameters at beginning
-		/*if (it == nodes.begin()) {
-			for (int i=0; i<f.params.size(); i++) {
-				gen.insert(gen.begin(), f.params[i].identifier);
-			}
-		}*/
 		kill = findKillSet(*it);
 		
 		updateUseSet(gen, kill, live);
+		
+		
+		if (it->ifFlags == 1) { // IF
+			// merge the current live set and original
+			
+			if (elseStack.top()) {
+				// merge the if and else
+				std::vector< std::string> elsePart;
+				elsePart = liveVecStack.top();
+				liveVecStack.pop();
+				
+				live.insert(live.end(), elsePart.begin(), elsePart.end());
+				
+			}
+			
+			liveVecStack.pop(); // pop original value
+			elseStack.pop();
+		} else if (it->ifFlags == 2) { // ELSE
+			// push back "current" live set
+			std::vector< std::string> liveTemp = live;
+			live = liveVecStack.top();
+			liveVecStack.push(liveTemp);
+			elseStack.push(true);
+		} else if (it->ifFlags == 3) { // ENDIF
+			// push back current live set
+			liveVecStack.push(live);
+			elseStack.push(false);
+		}
 		
 		liveVec.push_back(live);
 	}
@@ -948,7 +1022,8 @@ void Driver::functionalLiveness(std::list< IRNode> &nodes) {
 	liveVec.insert(liveVec.begin(),live);
 	
 	nodes.reverse();
-	registerAllocation(liveVec, nodes);
+	registerAllocation(liveVec, nodes, f);
+	overwriteFuncData(f);
 	
 	//printLiveSet(nodes, liveVec);
 	
@@ -978,10 +1053,11 @@ void Driver::modifyTempVarAltNames(funcStruct_s f) {
 	return;
 }
 
-void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, std::list< IRNode> &nodes) {
+void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, std::list< IRNode> &nodes, funcStruct_s &f) {
 	std::vector< std::vector< std::string> >::reverse_iterator it;
 	std::list< IRNode>::iterator nIt;
 	std::map< std::string, std::string> regMap;
+	int ReturnNum = 0;
 
 	for (it=live.rbegin(), nIt=nodes.begin(); 
 			it!=live.rend(), nIt!=nodes.end(); it++, nIt++) {
@@ -1029,8 +1105,6 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 							newNode.op1    = rIt->first;
 							newNode.Result = rIt->second;
 							nodes.insert(nIt, newNode);
-							//std::cout << "STOREI " << rIt->first << " " 
-							//					<< rIt->second <<std::endl;
 							regMap.erase(rIt->first);
 							break;
 						}
@@ -1041,6 +1115,20 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 			}
 
 
+		}
+		if (nIt->opCode == "RETURN") {
+			// change the retVal to a register if necessary
+			std::string retval = f.retVals[ReturnNum];
+			if (!f.retVals[ReturnNum].empty() &&
+						 !isdigit(f.retVals[ReturnNum][0]) &&
+						 f.retVals[ReturnNum][0] != '.') {
+				std::string rn = 
+						getRegisterNumber(regMap, f.retVals[ReturnNum]);
+				if (!rn.empty()) {
+					f.retVals[ReturnNum] = rn;
+				}
+			}
+			ReturnNum++;
 		}
 		IRNode newNode = *nIt;
 		adjustNodeForRegisters(newNode, regMap);
@@ -1080,6 +1168,7 @@ void Driver::adjustNodeForRegisters(IRNode &n,
 			n.Result = r;
 		}
 	}
+	//
 	return;
 }
 

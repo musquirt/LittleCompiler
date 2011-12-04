@@ -34,6 +34,7 @@ struct IRNode
 	std::string op1;
 	std::string op2;
 	std::string Result;
+	int ifFlags; // 0 = None, 1=startsIf, 2=startsElse, 3=endsIf
 } ;
 
 struct funcStruct_s {	
@@ -129,7 +130,7 @@ private:
 							std::vector< std::string> &liveSet);
 	void printLiveSet(std::list< IRNode> nodes,
 					std::vector< std::vector< std::string> > live);
-	void registerAllocation(std::vector< std::vector< std::string> > &live, std::list< IRNode> &nodes);
+	void registerAllocation(std::vector< std::vector< std::string> > &live, std::list< IRNode> &nodes, funcStruct_s &f);
 	std::string getNextAvailableRegister(std::map< std::string, std::string>&,
 															 std::string);
 	std::string getRegisterNumber(std::map< std::string, std::string> &,
@@ -139,6 +140,7 @@ private:
 	bool isGlobalVariable(std::string s);
 	void modifyTempVarAltNames(funcStruct_s f);
 	bool isFunctionParameter(std::string s, std::string v);
+	void overwriteFuncData(funcStruct_s &f);
 };
 
 }

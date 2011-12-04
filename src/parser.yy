@@ -275,11 +275,13 @@ mulop : MULT { driver.treeStack.push_back("MULT"); }
             | DIV { driver.treeStack.push_back("DIV"); };
 
     /* Complex Statements and Condition */ 
-just_if : IF { driver.curNode.Result = driver.generateLabel(); };
+just_if : IF { driver.curNode.Result = driver.generateLabel();
+			   driver.curNode.ifFlags = 1; };
 if_stmt : just_if LPAREN cond RPAREN THEN stmt_list else_part ENDIF { 
 				driver.curNode.opCode = "LABEL";
 				driver.curNode.Result = driver.labelStack.top();
 				driver.labelStack.pop();
+				driver.curNode.ifFlags = 3;
 				driver.pushBackCurNode(); };
 else_part : just_else stmt_list {  }
             | /* empty */ {  };
@@ -290,6 +292,7 @@ just_else : ELSE{ std::string tempLabel = driver.labelStack.top();
 				driver.pushBackCurNode();
 				driver.curNode.opCode = "LABEL";
 				driver.curNode.Result = tempLabel;
+				driver.curNode.ifFlags = 2;
 				driver.pushBackCurNode(); };
 cond : expr compop expr {
 			driver.interpretTree();
