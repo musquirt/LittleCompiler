@@ -1,0 +1,44 @@
+PROGRAM test
+BEGIN
+
+	INT count,enough;
+	FLOAT newapprox,approx,num,tolerance,diff;
+	
+	FUNCTION VOID main()
+	BEGIN	
+		tolerance := 0.0001;
+		num	:= 7.0;
+	
+		approx	:= num;
+		count 	:= 0;	
+		diff 	:= 0.0;
+		enough 	:= 0;
+	
+		DO
+		
+			count := count + 1;
+			newapprox := 0.5*(approx + num/approx);
+ 	
+			diff := approx - newapprox; 
+			IF (diff > 0.0)
+			THEN
+				IF (diff < tolerance)
+				THEN
+					enough := 1;
+				ENDIF
+			ELSE
+				IF (diff > (0.0 - tolerance))
+				THEN
+					enough := 1;
+				ENDIF
+			ENDIF
+
+			approx 	:= newapprox;
+
+		WHILE (enough = 0);
+
+		
+		WRITE(approx);
+		WRITE(count);
+	END
+END

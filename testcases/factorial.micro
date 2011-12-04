@@ -1,0 +1,39 @@
+PROGRAM factorial
+BEGIN
+	STRING input := "Please enter an integer number: ";
+	STRING eol := "\n";
+		
+	FUNCTION INT factorial(INT a)
+	BEGIN
+		INT ret;
+		IF (a = 1)
+		THEN
+			RETURN 1;
+		ELSE
+			ret := factorial(a-1)*a;
+		ENDIF
+		RETURN ret;
+	END
+
+	FUNCTION INT main ()
+	BEGIN
+		INT num;
+		INT result;
+		WRITE(input);
+		READ(num);
+		
+		IF(num = 1)
+		THEN
+			result := 1;
+		ELSE
+			IF(num >1)
+			THEN
+			  result := factorial(num); 
+		  ELSE
+			  result := 0;
+			ENDIF
+		ENDIF
+		WRITE(result,eol);
+		RETURN 0;
+	END
+END

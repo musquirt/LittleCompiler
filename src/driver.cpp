@@ -479,26 +479,6 @@ void Driver::tinyPushRegisters(std::string scp)
 
 void Driver::tinyPopRegisters(std::string scope)
 {
-	/*// pop locals
-	if (scope != GLOBAL_SCOPE)
-	{
-		// first check the local variables
-		int scpnm = -1;
-		for (int i=0; i<scopeVec.size(); i++) {
-			if (scopeVec[i] == scope) {
-				scpnm = i+1;
-				break;
-			}
-		}
-		if (scpnm != -1) {
-			std::vector< VarStruct_s>::reverse_iterator vIt;
-			for (vIt = symbolTable[scpnm].rbegin(); 
-						vIt != symbolTable[scpnm].rend(); vIt++)
-			{
-				tinyStream << "pop " << vIt->altName << std::endl;
-			}
-		}
-	}*/
 	for(int i=MAX_NUM_REGISTERS-1; i>=0; i--)
 	{
 		tinyStream << "pop r" << i << std::endl;
@@ -1146,6 +1126,11 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		if (!(*nIt).op2.empty()) out3 << " " << (*nIt).op2;
 		if (!(*nIt).Result.empty()) out3 << " " << (*nIt).Result;
 		//std::cout << "(" << out1.str() << ")" << std::endl << out3.str()<< std::endl;
+		/*std::cout << out3.str() << std::endl;
+		std::map< std::string, std::string>::iterator some;
+		for (some=regMap.begin(); some!=regMap.end(); some++) {
+			std::cout << some->first << "=>" << some->second << std::endl;
+		}*/
 	}
 
 	return;

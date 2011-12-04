@@ -73,6 +73,7 @@
 	bool dontPush = false;
 	bool last_stmt = false;
 	std::vector< std::string> tempTreeStack;
+	int numParamsWorry = 0;
 	int numCommas = 0;
 %}
 
@@ -153,12 +154,7 @@ func_body : decl stmt_list { if (last_stmt == false) { // for funcs w/o return
     /* Statement List */
 stmt_list : stmt stmt_list {}
             | /* empty */;
-stmt : assign_stmt { if (dontPush != true) driver.pushBackCurNode();
-					 else { dontPush = false;
-					 		driver.curNode.opCode = "";
-					 		driver.curNode.op1 = "";
-					 		driver.curNode.op2 = "";
-					 		driver.curNode.Result = ""; }
+stmt : assign_stmt { driver.pushBackCurNode();
 					 driver.treeStack.clear();
 					 multiVars.clear();
 					 last_stmt = false; }
@@ -183,7 +179,7 @@ stmt : assign_stmt { if (dontPush != true) driver.pushBackCurNode();
     /* Basic Statements */
 assign_stmt : assign_expr SEMICOLON {  };
 assign_expr : assign_head assign_expr_butt { driver.curNode.Result = *$1; };
-assign_head : id { driver.fs[driver.fs.size()-1].assVar = *$1; };
+assign_head : id { $$ = $1; };
 assign_expr_butt : ASSIGN expr { driver.interpretTree();
 				driver.curNode.opCode = "STORE";
 				driver.curNode.op1 = driver.treeStack[0];
@@ -228,7 +224,8 @@ factor_tail : mulop postfix_expr factor_tail {  }
 postfix_expr : primary {  }
             | call_expr { driver.curNode.opCode = "JSR";
             			  driver.pushBackCurNode();
-            			  driver.popParams(multiVars.size());
+            			  driver.popParams(numParamsWorry);
+            			  numParamsWorry = 0;
             			  driver.fs[driver.fs.size()-1].assVar =
             			  			driver.createTempVar(little::FLOAT);
             			  // pop return value
@@ -242,9 +239,10 @@ call_expr : call_expr_head expr_list RPAREN {
 						driver.curNode.Result = "";
 						driver.pushBackCurNode();
 						driver.pushParams(multiVars);
+						numParamsWorry = multiVars.size();
 						driver.curNode.Result = *$1;
-						//dontPush = true;
-						driver.treeStack.erase(driver.treeStack.begin());
+						
+						driver.treeStack.clear();
 						driver.treeStack.insert(driver.treeStack.begin(), tempTreeStack.begin(), tempTreeStack.end());
 						tempTreeStack.clear();
 					}
@@ -253,8 +251,7 @@ call_expr : call_expr_head expr_list RPAREN {
 								 driver.curNode.op2 = "";
 								 driver.curNode.Result = "";
 								 driver.pushBackCurNode();
-            					 driver.curNode.Result = *$1;
-            					 /*dontPush = true;*/ };
+            					 driver.curNode.Result = *$1; };
 call_expr_head :  id LPAREN {
 								tempTreeStack = driver.treeStack;
 								driver.treeStack.clear();
