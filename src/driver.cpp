@@ -612,81 +612,161 @@ void Driver::tinyGenerateNormalCode(std::list< IRNode> theNodes)
 		}
 		else if (nodeIt->opCode.find("STORE") != std::string::npos)
 		{
-			/*tinyStream << "push " << theTemp << std::endl;
-			tinyStream << "move " << op1 << " " << theTemp
-					   << std::endl;
-			tinyStream << "move " << theTemp << " "
-					   << result << std::endl;
-			tinyStream << "pop " << theTemp << std::endl;*/
-			tinyStream << "move " << op1 << " " << result << std::endl;
+			if (liveness == false) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 << " " << theTemp
+						   << std::endl;
+				tinyStream << "move " << theTemp << " "
+						   << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} else {
+				tinyStream << "move " << op1 << " "
+				           << result << std::endl;
+			}
 		}
 		else if (nodeIt->opCode.find("ADD") != std::string::npos)
 		{
-			// move the first op to the temp register
-			tinyStream << "move " << op1 << " "
-				       << result << std::endl;
-			// add the second op to the first op and store
-			// in the temp register
-			if (nodeIt->opCode == "ADDI")
-			{
-				tinyStream << "addi ";
+			if (result.size() != 2 || result[0] != 'r' ||
+										 !isdigit(result[1])) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 
+						   << " " << theTemp << std::endl;
+				if (nodeIt->opCode == "ADDI")
+				{
+					tinyStream << "addi ";
+				}
+				else
+				{
+					tinyStream << "addr ";
+				}
+				tinyStream << op2 << " " << theTemp << std::endl;
+				tinyStream << "move " << theTemp 
+						   << " " << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} else {
+				// move the first op to the temp register
+				tinyStream << "move " << op1 << " "
+						   << result << std::endl;
+				// add the second op to the first op and store
+				// in the temp register
+				if (nodeIt->opCode == "ADDI")
+				{
+					tinyStream << "addi ";
+				}
+				else
+				{
+					tinyStream << "addr ";
+				}
+				tinyStream << op2 << " " << result << std::endl;
 			}
-			else
-			{
-				tinyStream << "addr ";
-			}
-			tinyStream << op2 << " " << result << std::endl;
 		}
 		else if (nodeIt->opCode.find("SUB") != std::string::npos)
 		{
-			// move the first op to the temp register
-			tinyStream << "move " << op1 << " "
-				       << result << std::endl;
-			// add the second op to the first op and store
-			// in the temp register
-			if (nodeIt->opCode == "SUBI")
-			{
-				tinyStream << "subi ";
+			if (result.size() != 2 || result[0] != 'r' ||
+										 !isdigit(result[1])) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 
+						   << " " << theTemp << std::endl;
+				if (nodeIt->opCode == "ADDI")
+				{
+					tinyStream << "subi ";
+				}
+				else
+				{
+					tinyStream << "subr ";
+				}
+				tinyStream << op2 << " " << theTemp << std::endl;
+				tinyStream << "move " << theTemp 
+						   << " " << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} else {
+				// move the first op to the temp register
+				tinyStream << "move " << op1 << " "
+						   << result << std::endl;
+				// add the second op to the first op and store
+				// in the temp register
+				if (nodeIt->opCode == "SUBI")
+				{
+					tinyStream << "subi ";
+				}
+				else
+				{
+					tinyStream << "subr ";
+				}
+				tinyStream << op2 << " " << result << std::endl;
 			}
-			else
-			{
-				tinyStream << "subr ";
-			}
-			tinyStream << op2 << " " << result << std::endl;
 		}
 		else if (nodeIt->opCode.find("DIV") != std::string::npos)
 		{
-			// move the first op to the temp register
-			tinyStream << "move " << op1 << " "
-				       << result << std::endl;
-			// add the second op to the first op and store
-			// in the temp register
-			if (nodeIt->opCode == "DIVI")
-			{
-				tinyStream << "divi ";
+			if (result.size() != 2 || result[0] != 'r' ||
+										 !isdigit(result[1])) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 
+						   << " " << theTemp << std::endl;
+				if (nodeIt->opCode == "ADDI")
+				{
+					tinyStream << "divi ";
+				}
+				else
+				{
+					tinyStream << "divr ";
+				}
+				tinyStream << op2 << " " << theTemp << std::endl;
+				tinyStream << "move " << theTemp 
+						   << " " << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} else {
+				// move the first op to the temp register
+				tinyStream << "move " << op1 << " "
+						   << result << std::endl;
+				// add the second op to the first op and store
+				// in the temp register
+				if (nodeIt->opCode == "DIVI")
+				{
+					tinyStream << "divi ";
+				}
+				else
+				{
+					tinyStream << "divr ";
+				}
+				tinyStream << op2 << " " << result << std::endl;
 			}
-			else
-			{
-				tinyStream << "divr ";
-			}
-			tinyStream << op2 << " " << result << std::endl;
 		}
 		else if (nodeIt->opCode.find("MULT") != std::string::npos)
 		{
-			// move the first op to the temp register
-			tinyStream << "move " << op1 << " "
-				       << result << std::endl;
-			// add the second op to the first op and store
-			// in the temp register
-			if (nodeIt->opCode == "MULTI")
-			{
-				tinyStream << "muli ";
+			if (result.size() != 2 || result[0] != 'r' ||
+										 !isdigit(result[1])) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 
+						   << " " << theTemp << std::endl;
+				if (nodeIt->opCode == "ADDI")
+				{
+					tinyStream << "muli ";
+				}
+				else
+				{
+					tinyStream << "mulr ";
+				}
+				tinyStream << op2 << " " << theTemp << std::endl;
+				tinyStream << "move " << theTemp 
+						   << " " << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} else {
+				// move the first op to the temp register
+				tinyStream << "move " << op1 << " "
+						   << result << std::endl;
+				// add the second op to the first op and store
+				// in the temp register
+				if (nodeIt->opCode == "MULTI")
+				{
+					tinyStream << "muli ";
+				}
+				else
+				{
+					tinyStream << "mulr ";
+				}
+				tinyStream << op2 << " " << result << std::endl;
 			}
-			else
-			{
-				tinyStream << "mulr ";
-			}
-			tinyStream << op2 << " " << result << std::endl;
 		}
 		else if (nodeIt->opCode == "GE")
 		{
@@ -1051,7 +1131,7 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		
 		std::vector< std::string> liveVars;
 		if (it->size() > MAX_NUM_REGISTERS) {
-			// redefine liveVars as the last 4 variables
+			// redefine liveVars as the newest 4 variables
 			std::vector< std::string>::iterator liveIt;
 			int i = 0;
 			for (liveIt=it->begin(); liveIt!=it->end(); liveIt++) {
@@ -1126,11 +1206,6 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		if (!(*nIt).op2.empty()) out3 << " " << (*nIt).op2;
 		if (!(*nIt).Result.empty()) out3 << " " << (*nIt).Result;
 		//std::cout << "(" << out1.str() << ")" << std::endl << out3.str()<< std::endl;
-		/*std::cout << out3.str() << std::endl;
-		std::map< std::string, std::string>::iterator some;
-		for (some=regMap.begin(); some!=regMap.end(); some++) {
-			std::cout << some->first << "=>" << some->second << std::endl;
-		}*/
 	}
 
 	return;
@@ -1287,30 +1362,23 @@ std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 			n.opCode.find("DIV") != std::string::npos) {
 		// no literals
 		if (isdigit(n.op1[0]) == false &&
-				n.op1[0] != '.' && !isGlobalVariable(n.op1)
+				n.op1[0] != '.'
 				&& !isFunctionParameter(f, n.op1)) {
 			v.push_back(n.op1);
 		}
 		if (isdigit(n.op2[0]) == false &&
-				n.op2[0] != '.' && !isGlobalVariable(n.op2)
+				n.op2[0] != '.'
 				&& !isFunctionParameter(f, n.op2)) {
 			v.push_back(n.op2);
 		}
 	} else if (n.opCode.find("STORE") != std::string::npos) {
 		if (isdigit(n.op1[0]) == false &&
-				n.op1[0] != '.'  && !isGlobalVariable(n.op1)
+				n.op1[0] != '.' 
 				&& !isFunctionParameter(f, n.op1)) {
 			v.push_back(n.op1);
 		}
-	/*} else if (n.opCode.find("WRITE") != std::string::npos) {
-		if (isdigit(n.Result[0]) == false &&
-				n.Result[0] != '.' && !isGlobalVariable(n.Result)
-				&& !isFunctionParameter(f, n.Result)) {
-			v.push_back(n.Result);
-		}*/
 	} else if (n.opCode.find("PUSH") != std::string::npos) {
-		if (n.Result != "" && !isFunctionParameter(f, n.Result) &&
-				!isGlobalVariable(n.Result)) {
+		if (n.Result != "" && !isFunctionParameter(f, n.Result)) {
 			v.push_back(n.Result);
 		}
 	} else if (n.opCode.find("RETURN") != std::string::npos) {
@@ -1318,11 +1386,22 @@ std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 		findFuncData(f, g);
 		std::string t = g.retVals[r];
 		if (t != "" && isdigit(t[0]) == false &&
-				t[0] != '.' && !isGlobalVariable(t)
+				t[0] != '.'
 				&& !isFunctionParameter(f, t)) {
 			v.push_back(t);
 		}
 		r--;
+	} else if (n.opCode.find("GE") != std::string::npos || n.opCode.find("LE") != std::string::npos || n.opCode.find("NE") != std::string::npos) {
+		if (isdigit(n.op1[0]) == false &&
+				n.op1[0] != '.'
+				&& !isFunctionParameter(f, n.op1)) {
+			v.push_back(n.op1);
+		}
+		if (isdigit(n.op2[0]) == false &&
+				n.op2[0] != '.'
+				&& !isFunctionParameter(f, n.op2)) {
+			v.push_back(n.op2);
+		}
 	}
 	
 	return v;

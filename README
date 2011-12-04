@@ -1,2 +1,27 @@
-Compiler for the LITTLE programming language for ECE462
-Larry Price
+Compiler for the LITTLE programming language for ECE468
+	Larry Price
+
+This compiler takes in code written in the fake programming language LITTLE (similar to MICRO) and spits out TINY assembly language. To build and run, do the following:
+
+make clean;
+make all;
+./build/micro test_file_location > output_file;
+./tinyR output_file;
+
+This will output TINY assembly without register allocation. For Liveness Analysis and Register Allocation, use the -live flag as below:
+
+./build/micro test_file_location -live > output_file
+./tiny output_file
+
+This compiler currently works nicely enough for me to call it done, or pretty damn close to it. Unfortunately, the semester is drawing to a close and the amount of time I have left to spend on this is very small. The files (located in testcases/) that can easily be proven to work:
+fibonacci.micro
+factorial.micro
+fma.micro
+Files that run but are not clear if the output is correct:
+test_expr.micro (not really sure what this bad boy is trying to output)
+test_adv.micro  (different numbers when liveness analysis is turned on or off)
+
+As for Liveness Analysis, we work with locals (including temps) and Globals, but not parameters. If I weren't so busy, I would've figured out a good way around this. A problem came because the parameters are technically defined outside the function, and my poor brain was unable to wrap itself around how to make that work generically with the other variables.
+
+NOTE: This compiler catches simple parsing errors, but won't catch errors like Wrong number of parameters, mixing types, etc.
+
