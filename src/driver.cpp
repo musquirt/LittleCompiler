@@ -945,6 +945,9 @@ void Driver::popRetVal() {
 	IRNode newNode;
 	newNode.opCode = "POP";
 	newNode.Result = fs[fs.size()-1].assVar;
+	if (newNode.Result == "") { // no assVar? fuck.
+		std::cerr << "no ass var" << std::endl;
+	}
 	nodeList.push_back(newNode);
 	subNodeList.push_back(newNode);
 	return;

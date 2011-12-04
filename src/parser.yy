@@ -55,8 +55,8 @@
 %left LPAREN RPAREN PLUS MINUS MULT DIV
 %right ASSIGN
 
-%type <sval>  id str id_list id_list_part assign_head
-%type <ltype> var_type any_type func_begin
+%type <sval>  id str id_list id_list_part assign_head call_expr_head
+%type <ltype> var_type any_type func_begin 
 
 %{
 
@@ -72,6 +72,7 @@
 	std::vector< std::string> multiVars;
 	bool dontPush = false;
 	bool last_stmt = false;
+	std::vector< std::string> tempTreeStack;
 	int numCommas = 0;
 %}
 
@@ -228,10 +229,13 @@ postfix_expr : primary {  }
             | call_expr { driver.curNode.opCode = "JSR";
             			  driver.pushBackCurNode();
             			  driver.popParams(multiVars.size());
+            			  driver.fs[driver.fs.size()-1].assVar =
+            			  			driver.createTempVar(little::FLOAT);
             			  // pop return value
             			  driver.popRetVal();
+            			  driver.treeStack.push_back(driver.fs[driver.fs.size()-1].assVar);
 						  multiVars.clear(); };
-call_expr : id LPAREN expr_list RPAREN { 
+call_expr : call_expr_head expr_list RPAREN { 
 						driver.curNode.opCode = "PUSH";
 						driver.curNode.op1 = "";
 						driver.curNode.op2 = "";
@@ -239,13 +243,26 @@ call_expr : id LPAREN expr_list RPAREN {
 						driver.pushBackCurNode();
 						driver.pushParams(multiVars);
 						driver.curNode.Result = *$1;
-						dontPush = true;
+						//dontPush = true;
+						driver.treeStack.erase(driver.treeStack.begin());
+						driver.treeStack.insert(driver.treeStack.begin(), tempTreeStack.begin(), tempTreeStack.end());
+						tempTreeStack.clear();
 					}
-            | id LPAREN RPAREN { driver.curNode.Result = *$1;
-            					 dontPush = true; };
+            | id LPAREN RPAREN { driver.curNode.opCode = "PUSH";
+								 driver.curNode.op1 = "";
+								 driver.curNode.op2 = "";
+								 driver.curNode.Result = "";
+								 driver.pushBackCurNode();
+            					 driver.curNode.Result = *$1;
+            					 /*dontPush = true;*/ };
+call_expr_head :  id LPAREN {
+								tempTreeStack = driver.treeStack;
+								driver.treeStack.clear();
+								$$ = $1;
+							}
 expr_list : expr expr_list_tail { 
 								  if (numCommas == 0 &&
-								  		driver.treeStack.empty() == false)
+								  		!driver.treeStack.empty())
 								  {
 								      driver.interpretTree();
 								      multiVars.clear();

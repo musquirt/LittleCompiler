@@ -95,6 +95,7 @@ public:
 	void addRetVal(std::string id);
 	bool returnExpr;
 	void popRetVal();
+	std::string createTempVar(littleTypes varType);
 	
 	// Liveness Anaylsis stuff
 	void performLivenessAnalysis();
@@ -105,7 +106,6 @@ private:
 	littleTypes adjustIROpCode(IRNode &node);
 	int tempVarCount;
 	int tempLabelCount;
-	std::string createTempVar(littleTypes varType);
 	void tinyVariableDeclaration();
 	void tinyPushRegisters(std::string scope = "main");
 	void tinyPopRegisters(std::string scope = "main");
