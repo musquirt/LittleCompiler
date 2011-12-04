@@ -632,12 +632,13 @@ void Driver::tinyGenerateNormalCode(std::list< IRNode> theNodes)
 		}
 		else if (nodeIt->opCode.find("STORE") != std::string::npos)
 		{
-			tinyStream << "push " << theTemp << std::endl;
+			/*tinyStream << "push " << theTemp << std::endl;
 			tinyStream << "move " << op1 << " " << theTemp
 					   << std::endl;
 			tinyStream << "move " << theTemp << " "
 					   << result << std::endl;
-			tinyStream << "pop " << theTemp << std::endl;
+			tinyStream << "pop " << theTemp << std::endl;*/
+			tinyStream << "move " << op1 << " " << result << std::endl;
 		}
 		else if (nodeIt->opCode.find("ADD") != std::string::npos)
 		{
@@ -1313,12 +1314,12 @@ std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 				&& !isFunctionParameter(f, n.op1)) {
 			v.push_back(n.op1);
 		}
-	} else if (n.opCode.find("WRITE") != std::string::npos) {
+	/*} else if (n.opCode.find("WRITE") != std::string::npos) {
 		if (isdigit(n.Result[0]) == false &&
 				n.Result[0] != '.' && !isGlobalVariable(n.Result)
 				&& !isFunctionParameter(f, n.Result)) {
 			v.push_back(n.Result);
-		}
+		}*/
 	} else if (n.opCode.find("PUSH") != std::string::npos) {
 		if (n.Result != "" && !isFunctionParameter(f, n.Result) &&
 				!isGlobalVariable(n.Result)) {
