@@ -612,7 +612,18 @@ void Driver::tinyGenerateNormalCode(std::list< IRNode> theNodes)
 		}
 		else if (nodeIt->opCode.find("STORE") != std::string::npos)
 		{
-			if (liveness == false) {
+			if (!liveness) {
+				tinyStream << "push " << theTemp << std::endl;
+				tinyStream << "move " << op1 << " " << theTemp
+						   << std::endl;
+				tinyStream << "move " << theTemp << " "
+						   << result << std::endl;
+				tinyStream << "pop " << theTemp << std::endl;
+			} // else if neither are registers
+			else if ((op1.size() != 2 || op1[0] != 'r' ||
+						!isdigit(op1[1]))
+						&& (result.size() != 2 || result[0] != 'r' ||
+						!isdigit(result[1]))) {
 				tinyStream << "push " << theTemp << std::endl;
 				tinyStream << "move " << op1 << " " << theTemp
 						   << std::endl;
@@ -1122,6 +1133,8 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 	std::list< IRNode>::iterator nIt;
 	std::map< std::string, std::string> regMap;
 	int ReturnNum = 0;
+	
+	int count = 0;
 
 	for (it=live.rbegin(), nIt=nodes.begin(); 
 			it!=live.rend(), nIt!=nodes.end(); it++, nIt++) {
@@ -1144,40 +1157,54 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		} else {
 			liveVars = *it;
 		}
-
+		
 		for (sIt=liveVars.begin(); sIt!=liveVars.end(); sIt++) {
-			out1 << *sIt << ",";
-			bool alreadyReg = false;
-			std::map< std::string, std::string>::iterator rIt;
-			for (rIt=regMap.begin(); rIt!=regMap.end(); rIt++) {
-				if (*sIt == rIt->second) {
-					alreadyReg = true;
-					break;
-				}
-			}
-			if (alreadyReg != true) {
-				if (regMap.size() == MAX_NUM_REGISTERS) {
-					// spill a register that won't be used
-					std::map< std::string, std::string>::iterator rIt;
-					for (rIt=regMap.begin(); rIt!=regMap.end(); rIt++) {
-						std::string reg = rIt->second;
-						if (reg != nIt->op1 && reg != nIt->op2 &&
-												 reg != nIt->Result) {
-							out << "Spilling " << reg  << std::endl;
-							IRNode newNode;
-							newNode.opCode = "STOREI";
-							newNode.op1    = rIt->first;
-							newNode.Result = rIt->second;
-							nodes.insert(nIt, newNode);
-							regMap.erase(rIt->first);
-							break;
-						}
+				out1 << *sIt << ",";
+				bool alreadyReg = false;
+				std::map< std::string, std::string>::iterator rIt;
+				for (rIt=regMap.begin(); rIt!=regMap.end(); rIt++) {
+					if (*sIt == rIt->second) {
+						alreadyReg = true;
+						break;
 					}
 				}
-
-				getNextAvailableRegister(regMap, *sIt);
-			}
-
+				if (alreadyReg != true) {
+					if (regMap.size() == MAX_NUM_REGISTERS) {
+						// spill a register that won't be used
+						std::map< std::string, std::string>::iterator rIt;
+						for (rIt=regMap.begin(); rIt!=regMap.end(); rIt++) {
+							std::string reg = rIt->second;
+							if (reg != nIt->op1 && reg != nIt->op2 &&
+													reg != nIt->Result) {
+								IRNode newNode;
+								newNode.opCode = "STOREF";
+								newNode.op1    = rIt->first;
+								newNode.Result = rIt->second;
+								nodes.insert(nIt, newNode);
+								regMap.erase(rIt->first);
+							
+								break;
+							}
+						}
+					}
+				
+					std::string tregure;
+					tregure = getNextAvailableRegister(regMap, *sIt);
+				
+					/* experimental shit */
+					#if 1
+					if (nIt != nodes.begin() && nIt != nodes.end()) {
+						if (nIt->Result != *sIt) 
+						{
+							IRNode newNode;
+							newNode.opCode = "STOREF";
+							newNode.op1    = *sIt;
+							newNode.Result = tregure;
+							nodes.insert(nIt, newNode);
+						}
+					}
+					#endif
+				}
 
 		}
 		if (nIt->opCode == "RETURN") {
@@ -1206,6 +1233,7 @@ void Driver::registerAllocation(std::vector< std::vector< std::string> > &live, 
 		if (!(*nIt).op2.empty()) out3 << " " << (*nIt).op2;
 		if (!(*nIt).Result.empty()) out3 << " " << (*nIt).Result;
 		//std::cout << "(" << out1.str() << ")" << std::endl << out3.str()<< std::endl;
+		count++;
 	}
 
 	return;
@@ -1329,6 +1357,17 @@ void Driver::updateUseSet(std::vector< std::string> genSet,
 		}
 	}
 	
+	std::vector< std::string>::iterator it;
+	std::vector< std::string>::iterator previt;
+	for (it=liveSet.begin(); it!=liveSet.end(); it++) {
+		if (it != liveSet.begin()) {
+			if (*it == *previt) {
+				it = liveSet.erase(previt);
+			}
+		}
+		previt = it;
+	}
+	
 	return;
 }
 
@@ -1363,22 +1402,26 @@ std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 		// no literals
 		if (isdigit(n.op1[0]) == false &&
 				n.op1[0] != '.'
-				&& !isFunctionParameter(f, n.op1)) {
+				&& !isFunctionParameter(f, n.op1)
+				&& !isGlobalVariable(n.op1)) {
 			v.push_back(n.op1);
 		}
 		if (isdigit(n.op2[0]) == false &&
 				n.op2[0] != '.'
-				&& !isFunctionParameter(f, n.op2)) {
+				&& !isFunctionParameter(f, n.op2)
+				&& !isGlobalVariable(n.op2)) {
 			v.push_back(n.op2);
 		}
 	} else if (n.opCode.find("STORE") != std::string::npos) {
 		if (isdigit(n.op1[0]) == false &&
 				n.op1[0] != '.' 
-				&& !isFunctionParameter(f, n.op1)) {
+				&& !isFunctionParameter(f, n.op1)
+				&& !isGlobalVariable(n.op1)) {
 			v.push_back(n.op1);
 		}
 	} else if (n.opCode.find("PUSH") != std::string::npos) {
-		if (n.Result != "" && !isFunctionParameter(f, n.Result)) {
+		if (n.Result != "" && !isFunctionParameter(f, n.Result)
+				&& !isGlobalVariable(n.Result)) {
 			v.push_back(n.Result);
 		}
 	} else if (n.opCode.find("RETURN") != std::string::npos) {
@@ -1387,19 +1430,21 @@ std::vector< std::string> Driver::findGenSet(IRNode n, std::string f, int &r) {
 		std::string t = g.retVals[r];
 		if (t != "" && isdigit(t[0]) == false &&
 				t[0] != '.'
-				&& !isFunctionParameter(f, t)) {
+				&& !isFunctionParameter(f, t)
+				&& !isGlobalVariable(t)) {
 			v.push_back(t);
 		}
 		r--;
 	} else if (n.opCode.find("GE") != std::string::npos || n.opCode.find("LE") != std::string::npos || n.opCode.find("NE") != std::string::npos) {
 		if (isdigit(n.op1[0]) == false &&
-				n.op1[0] != '.'
-				&& !isFunctionParameter(f, n.op1)) {
+				n.op1[0] != '.' && !isFunctionParameter(f, n.op1)
+				&& !isGlobalVariable(n.op1)) {
 			v.push_back(n.op1);
 		}
 		if (isdigit(n.op2[0]) == false &&
 				n.op2[0] != '.'
-				&& !isFunctionParameter(f, n.op2)) {
+				&& !isFunctionParameter(f, n.op2)
+				&& !isGlobalVariable(n.op2)) {
 			v.push_back(n.op2);
 		}
 	}

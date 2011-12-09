@@ -141,6 +141,7 @@ private:
 	void modifyTempVarAltNames(funcStruct_s f);
 	bool isFunctionParameter(std::string s, std::string v);
 	void overwriteFuncData(funcStruct_s &f);
+	bool isRegister(std::string);
 };
 
 }
